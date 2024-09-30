@@ -1,0 +1,92 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - .:/app
+    networks:
+      - dev
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+    env_file:
+      - .env
+
+  celery_worker:
+    build: .
+    command: celery -A celery_app worker --loglevel=info
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC}
+      - REDIS_URL=${REDIS_URL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - .:/app
+    networks:
+      - dev
+    env_file:
+      - .env
+
+  celery_beat:
+    build: .
+    command: celery -A celery_app beat --loglevel=info
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - .:/app
+      - celerybeat_data:/tmp
+    networks:
+      - dev
+    env_file:
+      - .env
+
+  telegram_bot:
+    build: .
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - .:/app
+    networks:
+      - dev
+    restart: always
+    command: python bot.py
+    env_file:
+      - .env
+
+  redis:
+    image: "redis:alpine"
+    networks:
+      - dev
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=selection_project
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=adminadmin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dev
+
+volumes:
+  postgres_data:
+  celerybeat_data:
+
+networks:
+  dev:
