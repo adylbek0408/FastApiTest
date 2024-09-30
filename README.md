@@ -7,7 +7,6 @@
   source venv/bin/activate
 
 2. Установка зависимостей
-   cd app
    pip install -r requirements.txt
 
 4. Запуск проекта
